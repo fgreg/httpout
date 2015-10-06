@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:int="http://www.springframework.org/schema/integration"
+	xmlns:int-http="http://www.springframework.org/schema/integration/http"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+		http://www.springframework.org/schema/integration/http http://www.springframework.org/schema/integration/http/spring-integration-http.xsd
+		http://www.springframework.org/schema/integration http://www.springframework.org/schema/integration/spring-integration.xsd">
+
+
+	<int:gateway service-interface="httpout.RequestProducer" 
+		default-request-channel="in"
+		default-reply-channel="out"/>
+	
+	<int:channel id="in"/>
+	
+	<int-http:outbound-gateway request-channel="in"
+		reply-channel="restResponse"
+		expected-response-type="java.lang.String"
+		url="http://www.example.com"
+		rest-template="restTemplate"
+		/>
+	
+	<int:channel id="restResponse"/>
+	
+<!-- 	<int:logging-channel-adapter channel="restResponse"  expression="payload.class"/> -->
+	
+	<int:payload-type-router input-channel="restResponse" >
+		<int:mapping type="java.lang.String" channel="out"/>
+		<int:mapping type="org.springframework.http.ResponseEntity" channel="error"/>
+	</int:payload-type-router>
+	
+	<int:channel id="out"/>
+	<int:channel id="error"/>
+	
+	<int:transformer input-channel="error"
+		output-channel="out"
+		expression="payload.toString()"
+	/>
+	
+	<int:bridge input-channel="error" output-channel="out"/>
+
+	<bean id="restTemplate" class="org.springframework.web.client.RestTemplate">
+		<property name="errorHandler">
+			<bean class="httpout.PassthroughResponseErrorHandler"/>
+		</property>
+	</bean>
+</beans>
